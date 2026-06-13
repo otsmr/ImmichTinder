@@ -1,10 +1,35 @@
 <template>
   <div class="page">
     <div class="header">
-      <img class="logo" src="/logo.png" alt="ImmichSwipe" draggable="false" />
-      <div class="spacer" />
-      <a v-if="immichAssetUrl" class="external-link" :href="immichAssetUrl" target="_blank" rel="noopener" title="Open in Immich">↗</a>
-      <button class="refresh" @click="showNextCard" :disabled="initialLoading" title="Refresh">↻</button>
+      <div class="header-left">
+        <a v-if="immichAssetUrl" class="icon-btn external-link" :href="immichAssetUrl" target="_blank" rel="noopener" title="Open in Immich">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="icon">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+        </a>
+      </div>
+      <div class="header-center">
+        <img class="logo" src="/logo.png" alt="ImmichSwipe" draggable="false" />
+      </div>
+      <div class="header-right">
+        <button class="refresh icon-btn" @click="showNextCard" :disabled="initialLoading" title="Refresh">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="icon">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+            <path d="M16 16h5v5"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat-item"><span class="icon">💚</span> <span class="val">{{ stats.liked }}</span></div>
+      <div class="stat-item"><span class="icon">❌</span> <span class="val">{{ stats.disliked }}</span></div>
+      <div class="stat-item"><span class="icon">⭐</span> <span class="val">{{ stats.superliked }}</span></div>
+      <div class="stat-item"><span class="icon">🗑️</span> <span class="val">{{ stats.deleted }}</span></div>
     </div>
 
     <div class="card-area">
@@ -37,6 +62,21 @@ const swipe = ref<SwipeCardExposed | null>(null)
 
 const currentId = ref<string | null>(null)
 const error = ref<string | null>(null)
+
+const stats = ref({
+  liked: 0,
+  disliked: 0,
+  superliked: 0,
+  deleted: 0
+})
+
+function saveStats() {
+  try {
+    localStorage.setItem('immich_tinder_stats', JSON.stringify(stats.value))
+  } catch (e) {
+    console.error('Failed to save stats', e)
+  }
+}
 
 // Metadata for display
 const takenAt = ref<string | null>(null)
@@ -266,6 +306,13 @@ function onImgLoad(e: Event) {
 
 async function commit(action: 'like' | 'dislike' | 'superlike' | 'delete') {
   const prevId = currentId.value
+  
+  if (action === 'like') stats.value.liked++
+  else if (action === 'dislike') stats.value.disliked++
+  else if (action === 'superlike') stats.value.superliked++
+  else if (action === 'delete') stats.value.deleted++
+  saveStats()
+
   // Swap immediately for snappy UX
   showNextCard()
   if (prevId) {
@@ -322,6 +369,20 @@ async function initPipeline() {
 
 onMounted(() => {
   void initPipeline()
+  try {
+    const saved = localStorage.getItem('immich_tinder_stats')
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (parsed) {
+        stats.value.liked = Number(parsed.liked) || 0
+        stats.value.disliked = Number(parsed.disliked) || 0
+        stats.value.superliked = Number(parsed.superliked) || 0
+        stats.value.deleted = Number(parsed.deleted) || 0
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load stats', e)
+  }
 })
 </script>
 
@@ -336,45 +397,75 @@ onMounted(() => {
 .header {
   flex-shrink: 0;
   height: 60px;
-  display: flex;
+  display: grid;
+  grid-template-columns: 60px 1fr 60px;
   align-items: center;
-  gap: 12px;
-  padding: 0 16px;
+  padding: 0 8px;
   border-bottom: 1px solid #1a1a1a;
   background-color: #080808;
 }
+.header-left,
+.header-right,
+.header-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .header .logo {
-  height: 38px;
+  height: 36px;
   max-height: 100%;
   width: auto;
   display: block;
 }
-.header .spacer {
-  flex: 1;
-}
-.header .external-link,
-.header .refresh {
-  font-size: 22px;
+.header .icon-btn {
   border: none;
   background: transparent;
   cursor: pointer;
-  color: #f3f4f6; /* gray-100 */
-  text-decoration: none;
+  color: #9ca3af; /* gray-400 */
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  transition: background 0.2s, transform 0.1s;
+  transition: background 0.2s, color 0.2s, transform 0.1s;
+  padding: 0;
 }
-.header .external-link:hover,
-.header .refresh:hover {
+.header .icon-btn:hover {
   background: rgba(255, 255, 255, 0.08);
+  color: #fff;
 }
-.header .external-link:active,
-.header .refresh:active {
+.header .icon-btn:active {
   transform: scale(0.95);
+}
+.header .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.stats-bar {
+  flex-shrink: 0;
+  height: 38px;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background-color: #0c0f17;
+  border-bottom: 1px solid #1a1a1a;
+  font-size: 13px;
+  font-weight: 600;
+  color: #9ca3af;
+}
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.stat-item .icon {
+  font-size: 14px;
+}
+.stat-item .val {
+  color: #fff;
+  font-variant-numeric: tabular-nums;
 }
 
 .card-area {
@@ -414,16 +505,16 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 12px 14px;
+  padding: 16px 20px;
   color: #fff;
-  font-size: 14px;
-  line-height: 1.35;
-  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.45) 40%, rgba(0,0,0,0.7) 100%);
+  font-size: clamp(16px, 4.5vw, 20px);
+  line-height: 1.4;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.5) 35%, rgba(0,0,0,0.85) 100%);
   pointer-events: none; /* do not block swipe */
 }
-.meta .line { text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
-.meta .time { font-weight: 700; }
-.meta .location { opacity: 0.95; }
+.meta .line { text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
+.meta .time { font-weight: 700; margin-bottom: 2px; }
+.meta .location { opacity: 0.95; font-size: 0.9em; }
 
 .state.loading, .state.error {
   color: #777;

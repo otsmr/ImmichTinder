@@ -490,7 +490,7 @@ onMounted(() => {
   height: auto !important;
   max-width: min(100%, 480px);
   max-height: 100%;
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 3 / 5;
   background: #111;
   border-radius: 20px;
   overflow: hidden;

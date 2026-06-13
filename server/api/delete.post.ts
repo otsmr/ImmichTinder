@@ -3,6 +3,7 @@ import { $fetch } from 'ofetch'
 
 const IMMICH_URL = process.env.IMMICH_URL!
 const IMMICH_TOKEN = process.env.IMMICH_TOKEN!
+const IMMICH_TRASH_ALBUM_ID = process.env.IMMICH_TRASH_ALBUM_ID
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<{ id?: string }>(event)
@@ -11,31 +12,27 @@ export default defineEventHandler(async (event) => {
   if (!id) {
     throw createError({ statusCode: 400, message: 'Missing id in request body' })
   }
+  if (!IMMICH_TRASH_ALBUM_ID) {
+    throw createError({ statusCode: 500, message: 'Server misconfigured: IMMICH_TRASH_ALBUM_ID is missing' })
+  }
 
   try {
-    // Try single-asset delete endpoint first
-    await $fetch(`${IMMICH_URL}/api/assets/${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-      headers: { 'x-api-key': IMMICH_TOKEN },
+    await $fetch(`${IMMICH_URL}/api/albums/${encodeURIComponent(IMMICH_TRASH_ALBUM_ID)}/assets`, {
+      method: 'PUT',
+      headers: {
+        'x-api-key': IMMICH_TOKEN,
+        'content-type': 'application/json',
+      },
+      body: {
+        ids: [id],
+      },
     })
   } catch (err: any) {
-    // Fallback to bulk delete API if single delete not supported
-    try {
-      await $fetch(`${IMMICH_URL}/api/assets`, {
-        method: 'DELETE',
-        headers: {
-          'x-api-key': IMMICH_TOKEN,
-          'content-type': 'application/json',
-        },
-        body: { ids: [id] },
-      })
-    } catch (err2: any) {
-      console.log(err2)
-      throw createError({
-        statusCode: err2?.statusCode || 502,
-        message: 'Failed to delete asset',
-      })
-    }
+    console.log(err)
+    throw createError({
+      statusCode: err?.statusCode || 502,
+      message: 'Failed to add asset to trash album',
+    })
   }
 
   return { success: true }

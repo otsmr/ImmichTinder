@@ -40,8 +40,13 @@
 
       <div v-else-if="!currentId && initialLoading" class="state loading">Loading...</div>
 
-      <SwipeCard ref="swipe" v-else class="card" :style="cardAspectStyle" @like="onLikeCommit" @dislike="onDislikeCommit" @superlike="onSuperlikeCommit" @delete="onDeleteCommit" @cancel="onCancel">
+      <SwipeCard ref="swipe" v-else class="card" @like="onLikeCommit" @dislike="onDislikeCommit" @superlike="onSuperlikeCommit" @delete="onDeleteCommit" @cancel="onCancel">
         <img :src="imageUrl" :key="currentId" alt="Random from Immich" class="photo" draggable="false" @load="onImgLoad" />
+        
+        <div class="whole-preview-container">
+          <img :src="imageUrl" alt="Whole preview" class="whole-preview" draggable="false" />
+        </div>
+
         <div class="meta" v-if="formattedTakenAt || locationWithFlag">
           <div class="line time" v-if="formattedTakenAt">{{ formattedTakenAt }}</div>
           <div class="line location" v-if="locationWithFlag">{{ locationWithFlag }}</div>
@@ -483,20 +488,46 @@ onMounted(() => {
 .card {
   width: auto !important;
   height: auto !important;
-  max-width: min(100%, 1100px);
+  max-width: min(100%, 480px);
   max-height: 100%;
+  aspect-ratio: 3 / 4;
   background: #111;
-  border-radius: 16px;
+  border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  box-shadow: 0 12px 36px rgba(0,0,0,0.45);
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 .photo {
   width: 100%;
   height: 100%;
-  object-fit: contain; /* preserve original aspect ratio */
+  object-fit: cover; /* zoom in in the center */
   user-select: none;
+}
+
+/* Whole image preview container */
+.whole-preview-container {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  width: 76px;
+  height: 100px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+  background-color: #0c0f17;
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.whole-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* preview the whole uncropped image */
 }
 
 /* Metadata overlay inside the card */
@@ -505,14 +536,15 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 16px 20px;
+  padding: 16px;
+  padding-right: 104px; /* reserve space for thumbnail */
   color: #fff;
-  font-size: clamp(16px, 4.5vw, 20px);
+  font-size: clamp(15px, 4.2vw, 19px);
   line-height: 1.4;
-  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.5) 35%, rgba(0,0,0,0.85) 100%);
+  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.6) 35%, rgba(0,0,0,0.85) 100%);
   pointer-events: none; /* do not block swipe */
 }
-.meta .line { text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
+.meta .line { text-shadow: 0 1px 4px rgba(0,0,0,0.85); }
 .meta .time { font-weight: 700; margin-bottom: 2px; }
 .meta .location { opacity: 0.95; font-size: 0.9em; }
 

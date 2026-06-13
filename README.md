@@ -29,12 +29,14 @@ Create a `.env` file at the project root with the following variables:
 IMMICH_URL=https://your-immich.example.com
 IMMICH_TOKEN=your_immich_api_key
 IMMICH_ALBUM_ID=<album_id_for_likes_and_superlikes>
+IMMICH_TRASH_ALBUM_ID=<album_id_for_trash>
 ```
 
 Notes:
 - IMMICH_URL is your Immich base URL (no trailing slash). It is also exposed to the client for deep-linking to Immich Web.
 - IMMICH_TOKEN is used as the `x-api-key` when the server calls Immich.
 - IMMICH_ALBUM_ID is the Immich album to which liked and superliked assets will be added.
+- IMMICH_TRASH_ALBUM_ID is the Immich album to which swiped down (deleted) assets will be added.
 
 ## Install
 
@@ -57,9 +59,7 @@ Then open http://localhost:3000.
 - Swipe right: Like (adds to IMMICH_ALBUM_ID)
 - Swipe left: Dislike (no-op server route for now)
 - Swipe up: Superlike (marks as favorite in Immich and adds to IMMICH_ALBUM_ID)
-- Swipe down: Options menu (shows the asset ID and actions)
-  - Open in Immich (opens Immich Web for the asset)
-  - Delete image (deletes the asset from Immich)
+- Swipe down: Delete/Trash (adds the asset to IMMICH_TRASH_ALBUM_ID)
 
 A refresh button in the header loads the next card. Bottom controls were removed; gestures drive the experience.
 
@@ -120,7 +120,7 @@ These routes are implemented under `server/api` and run only on the server side.
   - Body: `{ "id": "ASSET_ID" }`
 
 - POST `/api/delete`
-  - Deletes the asset from Immich. Tries single-asset delete first and falls back to bulk delete if needed.
+  - Adds the asset to the configured Immich trash album (see `IMMICH_TRASH_ALBUM_ID`).
   - Body: `{ "id": "ASSET_ID" }`
 
 ## How it works (high level)

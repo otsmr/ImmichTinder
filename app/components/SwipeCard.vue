@@ -7,6 +7,7 @@
       liking: state.animating && state.animDir === 'right',
       disliking: state.animating && state.animDir === 'left',
       superliking: state.animating && state.animDir === 'up',
+      deleting: state.animating && state.animDir === 'down',
     }"
     :style="cardStyle"
     @pointerdown="onPointerDown"
@@ -15,6 +16,7 @@
     <div class="badge like" :class="{ pop: showLike || (state.animating && state.animDir==='right') }" v-if="showLike || (state.animating && state.animDir==='right')">LIKE</div>
     <div class="badge dislike" :class="{ pop: showDislike || (state.animating && state.animDir==='left') }" v-if="showDislike || (state.animating && state.animDir==='left')">NOPE</div>
     <div class="badge superlike" :class="{ pop: showSuperlike || (state.animating && state.animDir==='up') }" v-if="showSuperlike || (state.animating && state.animDir==='up')">SUPERLIKE</div>
+    <div class="badge delete" :class="{ pop: showDelete || (state.animating && state.animDir==='down') }" v-if="showDelete || (state.animating && state.animDir==='down')">DELETE</div>
   </div>
 </template>
 
@@ -25,6 +27,7 @@ const emit = defineEmits<{
   (e: 'like'): void
   (e: 'dislike'): void
   (e: 'superlike'): void
+  (e: 'delete'): void
   (e: 'options'): void
   (e: 'cancel'): void
 }>()
@@ -48,6 +51,7 @@ const THRESHOLD_Y = 100 // px vertical to trigger
 const showLike = computed(() => state.dx > 40)
 const showDislike = computed(() => state.dx < -40)
 const showSuperlike = computed(() => state.dy < -60 && Math.abs(state.dy) > Math.abs(state.dx))
+const showDelete = computed(() => state.dy > 60 && Math.abs(state.dy) > Math.abs(state.dx))
 
 const cardStyle = computed(() => {
   const x = state.dx
@@ -100,9 +104,7 @@ function onPointerUp() {
       return
     }
     if (finalDy > THRESHOLD_Y) {
-      // Open options menu (no fling)
-      resetPosition()
-      emit('options')
+      void flingDown()
       cleanup()
       return
     }
@@ -149,6 +151,17 @@ async function flingUp() {
   emit('superlike')
 }
 
+async function flingDown() {
+  if (state.animating) return
+  state.animating = true
+  state.animDir = 'down'
+  state.dx = 0
+  state.dy = window.innerHeight
+  await new Promise(resolve => setTimeout(resolve, 300))
+  resetPosition()
+  emit('delete')
+}
+
 async function flingRight() { await fling('right') }
 async function flingLeft() { await fling('left') }
 
@@ -159,7 +172,7 @@ function cleanup() {
 
 onUnmounted(() => cleanup())
 
-defineExpose({ flingRight, flingLeft, flingUp })
+defineExpose({ flingRight, flingLeft, flingUp, flingDown })
 </script>
 
 <style scoped>
@@ -167,6 +180,8 @@ defineExpose({ flingRight, flingLeft, flingUp })
   position: relative;
   width: 100%;
   height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   touch-action: none; /* allow custom gestures */
   will-change: transform;
 }
@@ -178,6 +193,9 @@ defineExpose({ flingRight, flingLeft, flingUp })
 }
 .swipe-card.superliking {
   box-shadow: 0 10px 30px rgba(59,130,246,0.35); /* blue-500 */
+}
+.swipe-card.deleting {
+  box-shadow: 0 10px 30px rgba(239,68,68,0.35); /* red-500 */
 }
 /* Bigger, bolder, more visible LIKE/NOPE/SUPERLIKE stamps */
 .badge {
@@ -219,6 +237,13 @@ defineExpose({ flingRight, flingLeft, flingUp })
   color: #3B82F6; /* blue-500 */
   border-color: rgba(59,130,246,0.95);
   box-shadow: 0 0 0 4px rgba(59,130,246,0.18), 0 6px 22px rgba(59,130,246,0.25);
+}
+.badge.delete {
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(0deg) scale(0.9);
+  color: #EF4444; /* red-500 */
+  border-color: rgba(239,68,68,0.95);
+  box-shadow: 0 0 0 4px rgba(239,68,68,0.18), 0 6px 22px rgba(239,68,68,0.25);
 }
 .badge.pop {
   animation: pop 250ms ease-out both;

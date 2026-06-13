@@ -3,7 +3,8 @@
     <div class="header">
       <img class="logo" src="/logo.png" alt="ImmichSwipe" draggable="false" />
       <div class="spacer" />
-      <button class="refresh" @click="showNextCard" :disabled="initialLoading">↻</button>
+      <a v-if="immichAssetUrl" class="external-link" :href="immichAssetUrl" target="_blank" rel="noopener" title="Open in Immich">↗</a>
+      <button class="refresh" @click="showNextCard" :disabled="initialLoading" title="Refresh">↻</button>
     </div>
 
     <div class="card-area">
@@ -14,26 +15,13 @@
 
       <div v-else-if="!currentId && initialLoading" class="state loading">Loading...</div>
 
-      <SwipeCard ref="swipe" v-else class="card" :style="cardAspectStyle" @like="onLikeCommit" @dislike="onDislikeCommit" @superlike="onSuperlikeCommit" @options="onOptions" @cancel="onCancel">
+      <SwipeCard ref="swipe" v-else class="card" :style="cardAspectStyle" @like="onLikeCommit" @dislike="onDislikeCommit" @superlike="onSuperlikeCommit" @delete="onDeleteCommit" @cancel="onCancel">
         <img :src="imageUrl" :key="currentId" alt="Random from Immich" class="photo" draggable="false" @load="onImgLoad" />
         <div class="meta" v-if="formattedTakenAt || locationWithFlag">
           <div class="line time" v-if="formattedTakenAt">{{ formattedTakenAt }}</div>
           <div class="line location" v-if="locationWithFlag">{{ locationWithFlag }}</div>
         </div>
       </SwipeCard>
-
-      <div v-if="showOptions" class="modal-backdrop" @click.self="closeOptions">
-        <div class="modal">
-          <h3>Image options</h3>
-          <p class="id">ID: <code>{{ currentId }}</code></p>
-          <div class="actions">
-            <a v-if="immichAssetUrl" class="btn" :href="immichAssetUrl" target="_blank" rel="noopener" @click.stop>Open in Immich</a>
-            <button class="btn danger" :disabled="deleting" @click="deleteCurrent">{{ deleting ? 'Deleting…' : 'Delete image' }}</button>
-            <button class="btn" :disabled="deleting" @click="closeOptions">Close</button>
-          </div>
-          <p v-if="deleteError" class="error">{{ deleteError }}</p>
-        </div>
-      </div>
     </div>
 
   </div>
@@ -44,16 +32,11 @@ import SwipeCard from '~/components/SwipeCard.vue'
 import { ref, computed, onMounted } from 'vue'
 
 // Exposed methods from SwipeCard
-type SwipeCardExposed = { flingRight: () => Promise<void>; flingLeft: () => Promise<void>; flingUp: () => Promise<void> }
+type SwipeCardExposed = { flingRight: () => Promise<void>; flingLeft: () => Promise<void>; flingUp: () => Promise<void>; flingDown: () => Promise<void> }
 const swipe = ref<SwipeCardExposed | null>(null)
 
 const currentId = ref<string | null>(null)
 const error = ref<string | null>(null)
-
-// Options modal state
-const showOptions = ref(false)
-const deleting = ref(false)
-const deleteError = ref<string | null>(null)
 
 // Metadata for display
 const takenAt = ref<string | null>(null)
@@ -281,7 +264,7 @@ function onImgLoad(e: Event) {
   }
 }
 
-async function commit(action: 'like' | 'dislike' | 'superlike') {
+async function commit(action: 'like' | 'dislike' | 'superlike' | 'delete') {
   const prevId = currentId.value
   // Swap immediately for snappy UX
   showNextCard()
@@ -304,6 +287,9 @@ function onDislikeCommit() {
 function onSuperlikeCommit() {
   void commit('superlike')
 }
+function onDeleteCommit() {
+  void commit('delete')
+}
 
 // Trigger programmatic fling animations from buttons
 async function triggerLike() {
@@ -317,30 +303,6 @@ async function triggerDislike() {
 async function triggerSuperlike() {
   // No dedicated up-swipe animation; commit immediately
   await commit('superlike')
-}
-
-function onOptions() {
-  deleteError.value = null
-  showOptions.value = true
-}
-function closeOptions() {
-  if (deleting.value) return
-  showOptions.value = false
-}
-async function deleteCurrent() {
-  if (!currentId.value) return
-  deleting.value = true
-  deleteError.value = null
-  try {
-    await $fetch('/api/delete', { method: 'POST', body: { id: currentId.value } })
-    // After deletion, move to next card
-    showOptions.value = false
-    await showNextCard()
-  } catch (e: any) {
-    deleteError.value = e?.data?.message || e?.message || 'Failed to delete image'
-  } finally {
-    deleting.value = false
-  }
 }
 
 function onCancel() {
@@ -367,17 +329,22 @@ onMounted(() => {
 .page {
   height: 100dvh; /* lock viewport height */
   overflow: hidden; /* prevent page scroll */
-  display: grid;
-  grid-template-rows: 90px 1fr; /* fixed header height; controls removed */
+  display: flex;
+  flex-direction: column;
+  background-color: #000;
 }
 .header {
+  flex-shrink: 0;
+  height: 60px;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 0 16px; /* internal spacing so it doesn't affect layout height */
+  padding: 0 16px;
+  border-bottom: 1px solid #1a1a1a;
+  background-color: #080808;
 }
 .header .logo {
-  height: 70px; /* adjusted per request */
+  height: 38px;
   max-height: 100%;
   width: auto;
   display: block;
@@ -385,32 +352,54 @@ onMounted(() => {
 .header .spacer {
   flex: 1;
 }
+.header .external-link,
 .header .refresh {
-  font-size: 20px;
+  font-size: 22px;
   border: none;
   background: transparent;
   cursor: pointer;
+  color: #f3f4f6; /* gray-100 */
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  transition: background 0.2s, transform 0.1s;
+}
+.header .external-link:hover,
+.header .refresh:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.header .external-link:active,
+.header .refresh:active {
+  transform: scale(0.95);
 }
 
 .card-area {
+  flex-grow: 1;
   position: relative;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 100%;
   overflow: hidden; /* ensure content stays within */
-  padding: 8px 16px; /* breathing room without causing page scroll */
+  padding: 16px; /* breathing room without causing page scroll */
   box-sizing: border-box;
 }
 .card {
-  /* Use container width to avoid overflow with parent padding */
-  width: min(100%, 1100px);
-  max-width: 100%;
+  width: auto !important;
+  height: auto !important;
+  max-width: min(100%, 1100px);
   max-height: 100%;
   background: #111;
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  display: flex;
+  flex-direction: column;
 }
 .photo {
   width: 100%;
@@ -436,81 +425,9 @@ onMounted(() => {
 .meta .time { font-weight: 700; }
 .meta .location { opacity: 0.95; }
 
-.controls {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 16px;
-  padding: 8px 16px; /* internal spacing */
-  box-sizing: border-box;
-}
-.btn {
-  padding: 12px 20px;
-  border-radius: 999px;
-  border: none;
-  font-weight: 700;
-  font-size: 16px;
-  cursor: pointer;
-}
-.btn.dislike { background: #fee2e2; color: #991b1b; }
-.btn.like { background: #d1fae5; color: #065f46; }
-.btn.superlike { background: #dbeafe; color: #1e3a8a; }
-
 .state.loading, .state.error {
   color: #777;
   font-size: 14px;
 }
 .state.error button { margin-top: 8px; }
-
-/* Options modal */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.55);
-  display: grid;
-  place-items: center;
-  z-index: 50;
-}
-.modal {
-  background: #1f2937; /* gray-800 */
-  color: #fff;
-  width: min(92vw, 520px);
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-}
-.modal h3 {
-  margin: 0 0 8px;
-}
-.modal .id {
-  word-break: break-all;
-  opacity: 0.9;
-}
-.modal .actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 12px;
-}
-.btn.danger {
-  background: #fee2e2;
-  color: #991b1b;
-}
-.modal .error {
-  color: #fca5a5;
-  margin-top: 10px;
-}
-
-/* Landscape optimizations */
-@media (orientation: landscape) {
-  /* Keep fixed tracks; just tweak card sizing and control spacing */
-  .card {
-    /* Use container-relative sizing to avoid horizontal overflow with padding */
-    width: min(100%, 95vh);
-    max-width: 100%;
-    max-height: 100%;
-  }
-  .controls {
-    gap: 24px;
-  }
-}
 </style>
